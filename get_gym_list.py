@@ -92,6 +92,9 @@ class CrossfitGymScraper(object):
             return
 
         s = BeautifulSoup(r.text)
+        if s.meta:
+            if 'searchassist.verizon.com' in s.meta.get('content', ''):
+                return
 
         # First try landing page
         e = self.get_email_link_from_page(s)
@@ -151,7 +154,7 @@ class CrossfitGymScraper(object):
     def scrape(self):
         self.load_gyms()
         self.get_gym_list()
-        v = [ g for i,g in self.gyms.items() if 'aux' in g['link'] ][0]
+        v = [ g for i,g in self.gyms.items() if 'chain' in g['link'] ][0]
         self.get_gym_email(v)
         self.get_gym_emails()
         self.save_gyms()

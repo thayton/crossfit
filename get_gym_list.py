@@ -4,6 +4,7 @@ import re
 import sys
 import json
 import errno
+import urlparse
 
 from time import sleep
 from pprint import pprint
@@ -18,7 +19,7 @@ class CrossfitGymScraper(object):
 
     def get_gym_list(self):
         #    for i in xrange(1, 7397 + 1):
-        for i in xrange(1, 15):
+        for i in xrange(1, 55):
             if str(i) in self.gyms:
                 continue
 
@@ -85,7 +86,11 @@ class CrossfitGymScraper(object):
         if gym.get('email', False):
             return
 
-        r = get(gym['link'])
+        try:
+            r = get(gym['link'])
+        except:
+            return
+
         s = BeautifulSoup(r.text)
 
         # First try landing page
@@ -101,19 +106,39 @@ class CrossfitGymScraper(object):
 
         # See if there's a "contact us" page
         a = s.find('a', text=re.compile(r'contact', re.I))
-        if not a:
-            return
+        if a:
+            u = urlparse.urljoin(r.url, a['href'])
+            r = get(u)
+            s = BeautifulSoup(r.text)
 
-        r = get(a['href'])
+            e = self.get_email_link_from_page(s)
+            if e:
+                gym['email'] = e
+                return
+
+            e = self.get_email_text_from_page(s)
+            if e:
+                gym['email'] = e
+                return
+
+        # Try escaped fragment version of landing page
+        u = urlparse.urljoin(gym['link'], '?_escaped_fragment_=')
+        r = get(u)
         s = BeautifulSoup(r.text)
 
         e = self.get_email_link_from_page(s)
         if e:
             gym['email'] = e
+            return
 
         e = self.get_email_text_from_page(s)
         if e:
             gym['email'] = e
+            return
+
+    def missing_emails(self):
+        m = [ g['link'] for i,g in self.gyms.items() if not g.has_key('email') ]
+        print '\n'.join(['%s' % g for g in m ])
 
     def get_gym_emails(self):
         for id,gym in self.gyms.items():
@@ -126,6 +151,8 @@ class CrossfitGymScraper(object):
     def scrape(self):
         self.load_gyms()
         self.get_gym_list()
+        v = [ g for i,g in self.gyms.items() if 'aux' in g['link'] ][0]
+        self.get_gym_email(v)
         self.get_gym_emails()
         self.save_gyms()
 

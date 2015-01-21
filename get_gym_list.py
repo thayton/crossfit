@@ -18,7 +18,7 @@ class CrossfitGymScraper(object):
 
     def get_gym_list(self):
         #    for i in xrange(1, 7397 + 1):
-        for i in xrange(1, 5):
+        for i in xrange(1, 15):
             if str(i) in self.gyms:
                 continue
 
@@ -39,7 +39,7 @@ class CrossfitGymScraper(object):
             gym = {}
             gym['name'] = b.a.text
             gym['link'] = b.a['href']
-            gym['addr'] = s.text
+            gym['addr'] = ' '.join(['%s' % x for x in s.findAll(text=True)])
             gym['phone'] = p
             self.gyms[str(i)] = gym
             sleep(0.5)
@@ -59,21 +59,61 @@ class CrossfitGymScraper(object):
             if len(d):
                 self.gyms = json.loads(d)
     
+    def get_email_link_from_page(self, soup):
+        r = re.compile(r'mailto:\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4})\b', re.I)
+        a = soup.find('a', href=re.compile(r))
+
+        if a:
+            m = re.search(r, a['href'])
+            if len(m.groups()):
+                return m.group(1)
+        
+        return None
+
+    def get_email_text_from_page(self, soup):
+        r = re.compile(r'\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4})\b', re.I)
+        t = soup.find(text=re.compile(r))
+
+        if t:
+            m = re.search(r, t)
+            if len(m.groups()):
+                return m.group(1)
+        
+        return None
+
     def get_gym_email(self, gym):
         if gym.get('email', False):
             return
 
         r = get(gym['link'])
         s = BeautifulSoup(r.text)
-        r = re.compile(r'mailto:\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4})\b', re.I)
-        a = s.find('a', href=re.compile(r))
 
-        if a:
-            m = re.search(r, a['href'])
-            if len(m.groups()):
-                gym['email'] = m.group(1)
+        # First try landing page
+        e = self.get_email_link_from_page(s)
+        if e:
+            gym['email'] = e
+            return
 
-            print a
+        e = self.get_email_text_from_page(s)
+        if e:
+            gym['email'] = e
+            return
+
+        # See if there's a "contact us" page
+        a = s.find('a', text=re.compile(r'contact', re.I))
+        if not a:
+            return
+
+        r = get(a['href'])
+        s = BeautifulSoup(r.text)
+
+        e = self.get_email_link_from_page(s)
+        if e:
+            gym['email'] = e
+
+        e = self.get_email_text_from_page(s)
+        if e:
+            gym['email'] = e
 
     def get_gym_emails(self):
         for id,gym in self.gyms.items():

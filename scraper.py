@@ -45,16 +45,19 @@ class CrossfitScraper(object):
         if b.a is None:
             return
 
+        addr = ' '.join(['%s' % x for x in s.findAll(text=True)])
+        addr = ' '.join(addr.split())
+
         gym = CrossfitGym()
         gym.name = b.a.text
         gym.link = b.a['href']
-        gym.addr = ' '.join(['%s' % x for x in s.findAll(text=True)])
+        gym.addr = addr
         gym.affid = affid
         gym.phone = p
         gym.save()
         
     def get_gym_list(self):
-        for i in xrange(1, 3000):
+        for i in xrange(1, 3500):
             if CrossfitGym.objects.filter(affid=i).exists():
                 continue
 
